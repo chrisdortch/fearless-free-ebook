@@ -1,0 +1,10 @@
+{
+  "name": "Fearless: The Altar of Light and Darkness",
+  "short_name": "Fearless",
+  "description": "Free illustrated ebook by RollinD.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#05060b",
+  "theme_color": "#05060b",
+  "icons": [{ "src": "/favicon.png", "sizes": "512x512", "type": "image/png" }]
+}
