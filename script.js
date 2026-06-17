@@ -6,7 +6,15 @@
   const BOOK_URL_KEY = 'fearlessBookUrl';
   const PLAYLIST_URL_KEY = 'fearlessPlaylistUrl';
   const PLAYLIST_JSON_KEY = 'fearlessPlaylistJson';
+  const BOOK_UPDATED_KEY = 'fearlessBookUpdatedAt';
+  const PLAYLIST_UPDATED_KEY = 'fearlessPlaylistUpdatedAt';
   const ADMIN_UNLOCKED_KEY = 'fearlessAdminUnlocked';
+  const UPDATE_CHANNEL_NAME = 'fearlessSiteUpdates';
+
+  let updateChannel = null;
+  try {
+    updateChannel = new BroadcastChannel(UPDATE_CHANNEL_NAME);
+  } catch (_) {}
 
   const readStorage = (key) => {
     try {
@@ -41,6 +49,12 @@
   };
 
   applyBookLinks();
+
+  const notifySiteUpdate = (type) => {
+    const key = type === 'book' ? BOOK_UPDATED_KEY : PLAYLIST_UPDATED_KEY;
+    writeStorage(key, String(Date.now()));
+    updateChannel?.postMessage({ type });
+  };
 
   const header = document.querySelector('[data-scroll-header]');
   const toast = document.querySelector('[data-toast]');
@@ -230,7 +244,8 @@
       const nextUrl = bookInput.value.trim() || DEFAULT_BOOK_URL;
       writeStorage(BOOK_URL_KEY, nextUrl);
       applyBookLinks();
-      status.textContent = 'Book link saved for this browser.';
+      notifySiteUpdate('book');
+      status.textContent = 'Book link saved for this browser. Full URLs work.';
       showToast('Book link saved.');
     });
 
@@ -238,6 +253,7 @@
       removeStorage(BOOK_URL_KEY);
       fillAdminInputs();
       applyBookLinks();
+      notifySiteUpdate('book');
       status.textContent = 'Book link reset.';
       showToast('Book link reset.');
     });
@@ -250,8 +266,8 @@
       try {
         if (source.includes('suno.com/playlist/')) {
           const playlist = validatePlaylist(await fetch(DEFAULT_PLAYLIST_JSON_URL, { cache: 'no-store' }).then((response) => response.json()));
-          removeStorage(PLAYLIST_JSON_KEY);
-          status.textContent = `Playlist URL saved. Current static playlist has ${playlist.tracks.length} tracks.`;
+          writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist));
+          status.textContent = `Suno playlist URL saved. Static playlist loaded with ${playlist.tracks.length} tracks for this browser.`;
         } else {
           const response = await fetch(source, { cache: 'no-store' });
           if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
@@ -259,6 +275,7 @@
           writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist));
           status.textContent = `Loaded ${playlist.tracks.length} tracks for this browser.`;
         }
+        notifySiteUpdate('playlist');
         showToast('Playlist refreshed.');
       } catch (error) {
         status.textContent = error.message || 'Playlist refresh failed.';
@@ -271,6 +288,7 @@
       removeStorage(PLAYLIST_URL_KEY);
       removeStorage(PLAYLIST_JSON_KEY);
       fillAdminInputs();
+      notifySiteUpdate('playlist');
       status.textContent = 'Playlist reset.';
       showToast('Playlist reset.');
     });
@@ -294,6 +312,13 @@
   const albumSuno = albumPlayer.querySelector('[data-album-suno]');
   const albumPrev = albumPlayer.querySelector('[data-album-prev]');
   const albumNext = albumPlayer.querySelector('[data-album-next]');
+  const albumToggle = albumPlayer.querySelector('[data-album-toggle]');
+  const albumState = albumPlayer.querySelector('[data-album-state]');
+  const albumInfo = albumPlayer.querySelector('[data-album-info]');
+  const albumLyricsPanel = albumPlayer.querySelector('[data-album-lyrics-panel]');
+  const albumLyricsClose = albumPlayer.querySelector('[data-album-lyrics-close]');
+  const albumLyricsTitle = albumPlayer.querySelector('[data-album-lyrics-title]');
+  const albumLyricsText = albumPlayer.querySelector('[data-album-lyrics-text]');
   const startAlbumButtons = document.querySelectorAll('[data-start-album]');
   let playlistTracks = [];
   let activeTrackIndex = 0;
@@ -322,6 +347,29 @@
         chip.textContent = tag;
         albumTags.append(chip);
       });
+  };
+
+  const getTrackText = (track) => (
+    track.lyrics ||
+    track.words ||
+    track.caption ||
+    track.tags ||
+    'Lyrics were not included in the playlist data for this track.'
+  );
+
+  const setLyricsOpen = (isOpen) => {
+    if (!albumLyricsPanel || !albumInfo) return;
+    albumLyricsPanel.hidden = !isOpen;
+    albumInfo.setAttribute('aria-expanded', String(isOpen));
+  };
+
+  const syncPlaybackUi = () => {
+    if (!albumToggle || !albumState) return;
+    const isPlaying = !albumAudio.paused && !albumAudio.ended;
+    albumToggle.textContent = isPlaying ? 'Pause' : 'Play';
+    albumToggle.setAttribute('aria-pressed', String(isPlaying));
+    albumState.hidden = !isPlaying;
+    albumState.textContent = 'Now Playing';
   };
 
   const isMobileViewport = () => window.matchMedia('(max-width: 920px)').matches;
@@ -353,10 +401,6 @@
     albumPanelCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.', 180);
     renderTags(track.tags);
 
-    albumFallback.src = track.imageUrl;
-    albumFallback.alt = '';
-    albumCover.src = track.imageUrl;
-    albumCover.alt = `${track.title} artwork`;
     albumMp3.href = track.audioUrl;
     albumSuno.href = track.sunoUrl;
 
@@ -364,6 +408,14 @@
       albumAudio.src = track.audioUrl;
       albumAudio.load();
     }
+
+    albumFallback.src = track.imageUrl;
+    albumFallback.alt = '';
+    albumCover.src = track.imageUrl;
+    albumCover.alt = `${track.title} artwork`;
+    albumLyricsTitle.textContent = track.title;
+    albumLyricsText.textContent = getTrackText(track);
+
     albumVideo.poster = track.imageUrl;
     if (track.videoUrl) {
       albumVideo.src = track.videoUrl;
@@ -381,9 +433,11 @@
         .then(playStageVideo)
         .catch(() => {
           playStageVideo();
+          syncPlaybackUi();
           showToast('Press play to start audio.');
         });
     }
+    syncPlaybackUi();
   };
 
   const playRelativeTrack = (offset, shouldScroll = false) => {
@@ -441,13 +495,30 @@
     return response.json();
   };
 
-  albumAudio.addEventListener('play', playStageVideo);
+  albumAudio.addEventListener('play', () => {
+    playStageVideo();
+    syncPlaybackUi();
+  });
   albumAudio.addEventListener('pause', () => {
     if (!albumAudio.ended) albumVideo.pause();
+    syncPlaybackUi();
   });
-  albumAudio.addEventListener('ended', () => playRelativeTrack(1));
+  albumAudio.addEventListener('ended', () => {
+    syncPlaybackUi();
+    playRelativeTrack(1);
+  });
   albumPrev.addEventListener('click', () => playRelativeTrack(-1));
   albumNext.addEventListener('click', () => playRelativeTrack(1));
+  albumToggle?.addEventListener('click', () => {
+    if (!playlistTracks.length) return;
+    if (!albumAudio.paused && !albumAudio.ended) {
+      albumAudio.pause();
+      return;
+    }
+    setActiveTrack(activeTrackIndex, { playAudio: true });
+  });
+  albumInfo?.addEventListener('click', () => setLyricsOpen(albumLyricsPanel.hidden));
+  albumLyricsClose?.addEventListener('click', () => setLyricsOpen(false));
 
   startAlbumButtons.forEach((button) => {
     button.addEventListener('click', (event) => {
@@ -461,13 +532,16 @@
     });
   });
 
-  loadPlaylist()
+  const initializePlaylist = (options = {}) => {
+    loadPlaylist()
     .then((playlist) => {
+      const shouldResume = options.resumePlayback && !albumAudio.paused;
       playlistTracks = playlist.tracks.filter((track) => track.audioUrl && track.videoUrl);
       albumList.replaceChildren();
       playlistTracks.forEach((track) => albumList.append(buildTrackButton(track)));
-      setActiveTrack(0);
+      setActiveTrack(Math.min(activeTrackIndex, playlistTracks.length - 1));
       if (pendingStartAlbum) setActiveTrack(0, { playAudio: true, scroll: true });
+      if (shouldResume) setActiveTrack(activeTrackIndex, { playAudio: true });
     })
     .catch(() => {
       albumTitle.textContent = 'Album unavailable';
@@ -483,4 +557,19 @@
       fallbackLink.textContent = 'Open the Suno playlist';
       albumList.append(fallbackLink);
     });
+  };
+
+  initializePlaylist();
+
+  window.addEventListener('storage', (event) => {
+    if (event.key === BOOK_URL_KEY || event.key === BOOK_UPDATED_KEY) applyBookLinks();
+    if (event.key === PLAYLIST_JSON_KEY || event.key === PLAYLIST_URL_KEY || event.key === PLAYLIST_UPDATED_KEY) {
+      initializePlaylist({ resumePlayback: true });
+    }
+  });
+
+  updateChannel?.addEventListener('message', (event) => {
+    if (event.data?.type === 'book') applyBookLinks();
+    if (event.data?.type === 'playlist') initializePlaylist({ resumePlayback: true });
+  });
 })();

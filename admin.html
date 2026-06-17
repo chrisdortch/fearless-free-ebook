@@ -41,7 +41,7 @@
         <h1>Site Controls</h1>
         <label class="admin-label">
           <span>Book link</span>
-          <input data-admin-book-url type="url" />
+          <input data-admin-book-url type="url" placeholder="https://example.com/book.pdf or /downloads/book.pdf" />
         </label>
         <div class="admin-actions">
           <button class="button button-primary" type="button" data-admin-save-book>Save book link</button>
@@ -49,13 +49,14 @@
         </div>
         <label class="admin-label">
           <span>Playlist URL</span>
-          <input data-admin-playlist-url type="url" />
+          <input data-admin-playlist-url type="url" placeholder="https://suno.com/playlist/... or https://example.com/playlist.json" />
         </label>
         <div class="admin-actions">
           <button class="button button-primary" type="button" data-admin-refresh-playlist>Refresh playlist</button>
           <button class="button button-secondary" type="button" data-admin-reset-playlist>Reset playlist</button>
         </div>
         <p class="admin-status" data-admin-status></p>
+        <p class="admin-hint">Book links can be full URLs. Playlist JSON links update this browser; Suno playlist links keep the built-in static track list.</p>
       </section>
     </main>
     <div class="toast" role="status" aria-live="polite" data-toast>Saved.</div>

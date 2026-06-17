@@ -33,17 +33,18 @@
   <body>
     <a class="skip-link" href="#download">Skip to downloads</a>
     <header class="site-header" data-scroll-header>
-      <button class="menu-toggle" type="button" data-menu-toggle aria-label="Open menu" aria-expanded="false">
-        <span></span><span></span><span></span>
-      </button>
       <a class="brand" href="#top" aria-label="Fearless home">
         <img class="brand-logo" src="/assets/images/rollind-logo.jpg" alt="" width="36" height="36" />
         <span>Fearless</span>
       </a>
       <a class="nav-cta admin-cta" href="/admin.html">Admin</a>
+      <button class="menu-toggle" type="button" data-menu-toggle aria-label="Open menu" aria-expanded="false">
+        <span></span><span></span><span></span>
+      </button>
       <nav class="nav" aria-label="Main navigation" data-menu-panel hidden>
         <a href="#book">Book</a>
         <a href="#album">Album</a>
+        <a href="#video">Video</a>
         <a href="#vision">Vision</a>
         <a href="#gallery">Gallery</a>
         <a href="#series">Series</a>
@@ -76,7 +77,7 @@
             </a>
             <div class="download-meta">
               <span>PDF: ~95 MB</span>
-              <a href="/downloads/Fearless_Book1_RollinD_Free_Ebook.epub" download>EPUB</a>
+              <a href="/downloads/Fearless_Book1_RollinD_Free_Ebook.epub" download>Kindle / EPUB</a>
             </div>
           </aside>
         </div>
@@ -84,7 +85,7 @@
 
       <section class="trust-strip" aria-label="Book facts">
         <div class="shell stats-grid">
-          <div><strong>Free ebook</strong><span>PDF + EPUB</span></div>
+          <div><strong>Free ebook</strong><span>PDF + Kindle</span></div>
           <div><strong>18 songs</strong><span>Companion album</span></div>
           <div><strong>50 images</strong><span>Cinematic artwork</span></div>
           <div><strong>By RollinD</strong><span>Light and Darkness</span></div>
@@ -147,10 +148,15 @@
             <span>Download full album</span>
           </a>
           <div class="album-player reveal delay-1" data-album-player>
-            <div class="album-stage" data-album-stage>
+            <div class="album-stage" id="video" data-album-stage>
               <video class="album-video" data-album-video autoplay muted loop playsinline></video>
               <img class="album-fallback" data-album-fallback alt="" />
               <div class="album-stage-shade" role="presentation"></div>
+              <div class="album-top-controls" aria-label="Video player controls">
+                <button class="album-play-toggle" type="button" data-album-toggle aria-pressed="false">Play</button>
+                <span class="album-state" data-album-state hidden>Now Playing</span>
+                <button class="album-info-button" type="button" data-album-info aria-expanded="false" aria-label="Show lyrics">i</button>
+              </div>
               <div class="album-now">
                 <p class="eyebrow" data-album-kicker>Now playing</p>
                 <h3 data-album-title>Loading album...</h3>
@@ -160,6 +166,12 @@
               <div class="album-skip-controls" aria-label="Album controls">
                 <button type="button" data-album-prev aria-label="Previous song">‹</button>
                 <button type="button" data-album-next aria-label="Next song">›</button>
+              </div>
+              <div class="album-lyrics-panel" data-album-lyrics-panel hidden>
+                <button class="album-lyrics-close" type="button" data-album-lyrics-close aria-label="Close lyrics">×</button>
+                <p class="eyebrow">Lyrics</p>
+                <h3 data-album-lyrics-title>Loading album...</h3>
+                <p data-album-lyrics-text>Lyrics will appear here when available.</p>
               </div>
             </div>
             <div class="album-panel">
@@ -180,7 +192,7 @@
               <div class="album-links">
                 <a class="button button-primary" data-album-mp3 href="https://suno.com/playlist/88bd44ac-eb0c-4751-a865-f2a4597dc5bb" target="_blank" rel="noopener">MP3</a>
                 <a class="button button-secondary" data-album-suno href="https://suno.com/playlist/88bd44ac-eb0c-4751-a865-f2a4597dc5bb" target="_blank" rel="noopener">Suno track</a>
-                <a class="button button-secondary" href="https://suno.com/playlist/88bd44ac-eb0c-4751-a865-f2a4597dc5bb" target="_blank" rel="noopener">Full playlist</a>
+                <a class="button button-secondary" href="https://suno.com/playlist/88bd44ac-eb0c-4751-a865-f2a4597dc5bb" target="_blank" rel="noopener">Suno playlist</a>
               </div>
               <div class="album-list" data-album-list aria-label="RollinD album track list">
                 <p>Loading tracks...</p>
@@ -296,7 +308,6 @@
           <details><summary>Can I download the artwork?</summary><p>Yes. The artwork section includes a free image collection download with the full-resolution book images.</p></details>
           <details><summary>Can I share it?</summary><p>Yes. Share the website or the free ebook download links. Please keep the author credit intact.</p></details>
           <details><summary>Will there be more books?</summary><p>The intended series is five books. Book I is the beginning: the altar opens, and the paths of light and darkness begin to depart.</p></details>
-          <details><summary>Can this site be deployed on Vercel?</summary><p>Yes. This is a standalone static site. Upload it to a new GitHub repository and import that new repository into Vercel as a new project.</p></details>
         </div>
       </section>
 
@@ -309,6 +320,7 @@
             <p>Download the illustrated ebook and step into Solumbra.</p>
             <div class="hero-actions">
               <a class="button button-primary" href="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf" target="_blank" rel="noopener" data-book-link>Read PDF</a>
+              <a class="button button-secondary" href="/downloads/Fearless_Book1_RollinD_Free_Ebook.epub" download>Kindle version</a>
               <a class="button button-secondary" href="#album" data-start-album>Listen album</a>
               <a class="button button-secondary" href="/downloads/Fearless_Book1_RollinD_FullRes_Images.zip" download>Download artwork</a>
             </div>
@@ -328,7 +340,7 @@
           <a href="#album">Album</a>
           <a href="#faq">FAQ</a>
           <a href="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf" target="_blank" rel="noopener" data-book-link>PDF</a>
-          <a href="/downloads/Fearless_Book1_RollinD_Free_Ebook.epub" download>EPUB</a>
+          <a href="/downloads/Fearless_Book1_RollinD_Free_Ebook.epub" download>Kindle</a>
           <a href="/downloads/Fearless_Book1_RollinD_FullRes_Images.zip" download>Artwork</a>
         </div>
       </div>
