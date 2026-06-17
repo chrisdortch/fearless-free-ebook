@@ -99,6 +99,66 @@
     });
   }
 
+  const pdfReader = document.querySelector('[data-pdf-reader]');
+  if (pdfReader) {
+    const frame = pdfReader.querySelector('[data-reader-frame]');
+    const pageInput = pdfReader.querySelector('[data-reader-page]');
+    const goButton = pdfReader.querySelector('[data-reader-go]');
+    const saveButton = pdfReader.querySelector('[data-reader-save]');
+    const resumeButton = pdfReader.querySelector('[data-reader-resume]');
+    const openLink = pdfReader.querySelector('[data-reader-open]');
+    const status = pdfReader.querySelector('[data-reader-status]');
+    const pdfSrc = pdfReader.dataset.pdfSrc || '/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf';
+    const totalPages = Number(pdfReader.dataset.totalPages || pageInput?.max || 295);
+    const storageKey = 'fearlessPdfSavedPage';
+
+    const clampPage = (value) => {
+      const page = Number.parseInt(value, 10);
+      if (!Number.isFinite(page)) return 1;
+      return Math.min(Math.max(page, 1), totalPages);
+    };
+
+    const pdfUrl = (page) => `${pdfSrc}#page=${page}&view=FitH`;
+
+    const getSavedPage = () => {
+      try {
+        return clampPage(window.localStorage.getItem(storageKey) || 1);
+      } catch (_) {
+        return 1;
+      }
+    };
+
+    const setSavedPage = (page) => {
+      try {
+        window.localStorage.setItem(storageKey, String(page));
+        status.textContent = `Saved page ${page} on this device.`;
+        showToast(`Saved page ${page}.`);
+      } catch (_) {
+        status.textContent = `Page ${page} is ready.`;
+      }
+    };
+
+    const loadPage = (page, shouldSave = false) => {
+      const nextPage = clampPage(page);
+      const nextUrl = pdfUrl(nextPage);
+      pageInput.value = String(nextPage);
+      frame.src = nextUrl;
+      openLink.href = nextUrl;
+      status.textContent = `Viewing page ${nextPage} of ${totalPages}.`;
+      if (shouldSave) setSavedPage(nextPage);
+    };
+
+    const savedPage = getSavedPage();
+    loadPage(savedPage);
+
+    goButton.addEventListener('click', () => loadPage(pageInput.value));
+    saveButton.addEventListener('click', () => setSavedPage(clampPage(pageInput.value)));
+    resumeButton.addEventListener('click', () => loadPage(getSavedPage()));
+    pageInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') loadPage(pageInput.value);
+    });
+  }
+
   const albumPlayer = document.querySelector('[data-album-player]');
   if (!albumPlayer) return;
 
@@ -108,6 +168,8 @@
   const albumAudio = albumPlayer.querySelector('[data-album-audio]');
   const albumTitle = albumPlayer.querySelector('[data-album-title]');
   const albumCaption = albumPlayer.querySelector('[data-album-caption]');
+  const albumPanelTitle = albumPlayer.querySelector('[data-album-panel-title]');
+  const albumPanelCaption = albumPlayer.querySelector('[data-album-panel-caption]');
   const albumTags = albumPlayer.querySelector('[data-album-tags]');
   const albumList = albumPlayer.querySelector('[data-album-list]');
   const albumMp3 = albumPlayer.querySelector('[data-album-mp3]');
@@ -135,6 +197,8 @@
   const setActiveTrack = (track, shouldPlayAudio = false) => {
     albumTitle.textContent = track.title;
     albumCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.');
+    albumPanelTitle.textContent = track.title;
+    albumPanelCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.', 180);
     renderTags(track.tags);
 
     albumFallback.src = track.imageUrl;
@@ -202,6 +266,8 @@
     .catch(() => {
       albumTitle.textContent = 'Album unavailable';
       albumCaption.textContent = 'The playlist could not be loaded.';
+      albumPanelTitle.textContent = 'Album unavailable';
+      albumPanelCaption.textContent = 'The playlist could not be loaded.';
       albumList.textContent = '';
       const fallbackLink = document.createElement('a');
       fallbackLink.className = 'inline-link';
