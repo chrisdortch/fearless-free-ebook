@@ -42,6 +42,63 @@
     });
   });
 
+  const lightbox = document.querySelector('[data-art-lightbox]');
+  const galleryLinks = [...document.querySelectorAll('.book-art-card a')];
+  if (lightbox && galleryLinks.length) {
+    const lightboxImage = lightbox.querySelector('[data-lightbox-image]');
+    const lightboxCaption = lightbox.querySelector('[data-lightbox-caption]');
+    const lightboxCount = lightbox.querySelector('[data-lightbox-count]');
+    const closeLightboxButton = lightbox.querySelector('[data-lightbox-close]');
+    const previousLightboxButton = lightbox.querySelector('[data-lightbox-prev]');
+    const nextLightboxButton = lightbox.querySelector('[data-lightbox-next]');
+    let activeArtworkIndex = 0;
+
+    const showArtwork = (index) => {
+      activeArtworkIndex = (index + galleryLinks.length) % galleryLinks.length;
+      const link = galleryLinks[activeArtworkIndex];
+      const image = link.querySelector('img');
+      const caption = link.querySelector('figcaption')?.textContent?.trim() || image?.alt || 'Fearless artwork';
+
+      lightboxImage.src = link.href;
+      lightboxImage.alt = image?.alt || caption;
+      lightboxCaption.textContent = caption;
+      lightboxCount.textContent = `${activeArtworkIndex + 1} / ${galleryLinks.length}`;
+    };
+
+    const openLightbox = (index) => {
+      showArtwork(index);
+      lightbox.hidden = false;
+      document.body.classList.add('lightbox-open');
+      closeLightboxButton.focus({ preventScroll: true });
+    };
+
+    const closeLightbox = () => {
+      lightbox.hidden = true;
+      document.body.classList.remove('lightbox-open');
+    };
+
+    galleryLinks.forEach((link, index) => {
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        openLightbox(index);
+      });
+    });
+
+    closeLightboxButton.addEventListener('click', closeLightbox);
+    previousLightboxButton.addEventListener('click', () => showArtwork(activeArtworkIndex - 1));
+    nextLightboxButton.addEventListener('click', () => showArtwork(activeArtworkIndex + 1));
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox) closeLightbox();
+    });
+
+    window.addEventListener('keydown', (event) => {
+      if (lightbox.hidden) return;
+      if (event.key === 'Escape') closeLightbox();
+      if (event.key === 'ArrowLeft') showArtwork(activeArtworkIndex - 1);
+      if (event.key === 'ArrowRight') showArtwork(activeArtworkIndex + 1);
+    });
+  }
+
   const albumPlayer = document.querySelector('[data-album-player]');
   if (!albumPlayer) return;
 
