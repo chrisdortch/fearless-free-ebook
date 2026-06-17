@@ -1,9 +1,80 @@
 (() => {
+  const DEFAULT_BOOK_URL = '/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf';
+  const DEFAULT_PLAYLIST_JSON_URL = '/assets/music/playlist.json';
+  const DEFAULT_SUNO_PLAYLIST_URL = 'https://suno.com/playlist/88bd44ac-eb0c-4751-a865-f2a4597dc5bb';
+  const ADMIN_PIN = '7900';
+  const BOOK_URL_KEY = 'fearlessBookUrl';
+  const PLAYLIST_URL_KEY = 'fearlessPlaylistUrl';
+  const PLAYLIST_JSON_KEY = 'fearlessPlaylistJson';
+  const ADMIN_UNLOCKED_KEY = 'fearlessAdminUnlocked';
+
+  const readStorage = (key) => {
+    try {
+      return window.localStorage.getItem(key);
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const writeStorage = (key, value) => {
+    try {
+      window.localStorage.setItem(key, value);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const removeStorage = (key) => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (_) {}
+  };
+
+  const getBookUrl = () => readStorage(BOOK_URL_KEY) || DEFAULT_BOOK_URL;
+
+  const applyBookLinks = () => {
+    const bookUrl = getBookUrl();
+    document.querySelectorAll('[data-book-link], [data-book-download]').forEach((link) => {
+      link.href = bookUrl;
+    });
+  };
+
+  applyBookLinks();
+
   const header = document.querySelector('[data-scroll-header]');
   const toast = document.querySelector('[data-toast]');
+  const menuToggle = document.querySelector('[data-menu-toggle]');
+  const menuPanel = document.querySelector('[data-menu-panel]');
+
   const updateHeader = () => header?.classList.toggle('scrolled', window.scrollY > 24);
   updateHeader();
   window.addEventListener('scroll', updateHeader, { passive: true });
+
+  const setMenuOpen = (isOpen) => {
+    if (!menuToggle || !menuPanel) return;
+    menuToggle.setAttribute('aria-expanded', String(isOpen));
+    menuToggle.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+    menuPanel.hidden = !isOpen;
+  };
+
+  menuToggle?.addEventListener('click', () => {
+    const isOpen = menuToggle.getAttribute('aria-expanded') === 'true';
+    setMenuOpen(!isOpen);
+  });
+
+  menuPanel?.querySelectorAll('a').forEach((link) => {
+    link.addEventListener('click', () => setMenuOpen(false));
+  });
+
+  document.addEventListener('click', (event) => {
+    if (!menuPanel || menuPanel.hidden || !header) return;
+    if (!header.contains(event.target)) setMenuOpen(false);
+  });
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') setMenuOpen(false);
+  });
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
@@ -26,7 +97,7 @@
     button.addEventListener('click', async () => {
       const shareData = {
         title: 'Fearless: The Altar of Light and Darkness',
-        text: 'Download the free illustrated ebook by RollinD.',
+        text: 'Read the free illustrated ebook by RollinD.',
         url: window.location.href.split('#')[0]
       };
       try {
@@ -99,69 +170,116 @@
     });
   }
 
-  const pdfReader = document.querySelector('[data-pdf-reader]');
-  if (pdfReader) {
-    const frame = pdfReader.querySelector('[data-reader-frame]');
-    const pageInput = pdfReader.querySelector('[data-reader-page]');
-    const goButton = pdfReader.querySelector('[data-reader-go]');
-    const saveButton = pdfReader.querySelector('[data-reader-save]');
-    const resumeButton = pdfReader.querySelector('[data-reader-resume]');
-    const openLink = pdfReader.querySelector('[data-reader-open]');
-    const status = pdfReader.querySelector('[data-reader-status]');
-    const pdfSrc = pdfReader.dataset.pdfSrc || '/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf';
-    const totalPages = Number(pdfReader.dataset.totalPages || pageInput?.max || 295);
-    const storageKey = 'fearlessPdfSavedPage';
+  const adminRoot = document.querySelector('[data-admin]');
+  if (adminRoot) {
+    const lock = adminRoot.querySelector('[data-admin-lock]');
+    const panel = adminRoot.querySelector('[data-admin-panel]');
+    const pinInput = adminRoot.querySelector('[data-admin-pin]');
+    const unlockButton = adminRoot.querySelector('[data-admin-unlock]');
+    const lockStatus = adminRoot.querySelector('[data-admin-lock-status]');
+    const status = adminRoot.querySelector('[data-admin-status]');
+    const bookInput = adminRoot.querySelector('[data-admin-book-url]');
+    const playlistInput = adminRoot.querySelector('[data-admin-playlist-url]');
+    const saveBookButton = adminRoot.querySelector('[data-admin-save-book]');
+    const resetBookButton = adminRoot.querySelector('[data-admin-reset-book]');
+    const refreshPlaylistButton = adminRoot.querySelector('[data-admin-refresh-playlist]');
+    const resetPlaylistButton = adminRoot.querySelector('[data-admin-reset-playlist]');
 
-    const clampPage = (value) => {
-      const page = Number.parseInt(value, 10);
-      if (!Number.isFinite(page)) return 1;
-      return Math.min(Math.max(page, 1), totalPages);
-    };
-
-    const pdfUrl = (page) => `${pdfSrc}#page=${page}&view=FitH`;
-
-    const getSavedPage = () => {
-      try {
-        return clampPage(window.localStorage.getItem(storageKey) || 1);
-      } catch (_) {
-        return 1;
+    const validatePlaylist = (playlist) => {
+      if (!playlist || !Array.isArray(playlist.tracks) || !playlist.tracks.length) {
+        throw new Error('No tracks found.');
       }
-    };
-
-    const setSavedPage = (page) => {
-      try {
-        window.localStorage.setItem(storageKey, String(page));
-        status.textContent = `Saved page ${page} on this device.`;
-        showToast(`Saved page ${page}.`);
-      } catch (_) {
-        status.textContent = `Page ${page} is ready.`;
+      const missingVideo = playlist.tracks.filter((track) => !track.videoUrl);
+      if (missingVideo.length) {
+        throw new Error('Every track needs a video URL.');
       }
+      return playlist;
     };
 
-    const loadPage = (page, shouldSave = false) => {
-      const nextPage = clampPage(page);
-      const nextUrl = pdfUrl(nextPage);
-      pageInput.value = String(nextPage);
-      frame.src = nextUrl;
-      openLink.href = nextUrl;
-      status.textContent = `Viewing page ${nextPage} of ${totalPages}.`;
-      if (shouldSave) setSavedPage(nextPage);
+    const fillAdminInputs = () => {
+      bookInput.value = getBookUrl();
+      playlistInput.value = readStorage(PLAYLIST_URL_KEY) || DEFAULT_SUNO_PLAYLIST_URL;
     };
 
-    const savedPage = getSavedPage();
-    loadPage(savedPage);
+    const showPanel = () => {
+      lock.hidden = true;
+      panel.hidden = false;
+      fillAdminInputs();
+    };
 
-    goButton.addEventListener('click', () => loadPage(pageInput.value));
-    saveButton.addEventListener('click', () => setSavedPage(clampPage(pageInput.value)));
-    resumeButton.addEventListener('click', () => loadPage(getSavedPage()));
-    pageInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') loadPage(pageInput.value);
+    if (window.sessionStorage?.getItem(ADMIN_UNLOCKED_KEY) === 'true') showPanel();
+
+    const unlock = () => {
+      if (pinInput.value.trim() !== ADMIN_PIN) {
+        lockStatus.textContent = 'Wrong PIN.';
+        return;
+      }
+      try {
+        window.sessionStorage.setItem(ADMIN_UNLOCKED_KEY, 'true');
+      } catch (_) {}
+      lockStatus.textContent = '';
+      showPanel();
+    };
+
+    unlockButton.addEventListener('click', unlock);
+    pinInput.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') unlock();
+    });
+
+    saveBookButton.addEventListener('click', () => {
+      const nextUrl = bookInput.value.trim() || DEFAULT_BOOK_URL;
+      writeStorage(BOOK_URL_KEY, nextUrl);
+      applyBookLinks();
+      status.textContent = 'Book link saved for this browser.';
+      showToast('Book link saved.');
+    });
+
+    resetBookButton.addEventListener('click', () => {
+      removeStorage(BOOK_URL_KEY);
+      fillAdminInputs();
+      applyBookLinks();
+      status.textContent = 'Book link reset.';
+      showToast('Book link reset.');
+    });
+
+    refreshPlaylistButton.addEventListener('click', async () => {
+      const source = playlistInput.value.trim() || DEFAULT_SUNO_PLAYLIST_URL;
+      writeStorage(PLAYLIST_URL_KEY, source);
+      refreshPlaylistButton.disabled = true;
+      status.textContent = 'Refreshing playlist...';
+      try {
+        if (source.includes('suno.com/playlist/')) {
+          const playlist = validatePlaylist(await fetch(DEFAULT_PLAYLIST_JSON_URL, { cache: 'no-store' }).then((response) => response.json()));
+          removeStorage(PLAYLIST_JSON_KEY);
+          status.textContent = `Playlist URL saved. Current static playlist has ${playlist.tracks.length} tracks.`;
+        } else {
+          const response = await fetch(source, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
+          const playlist = validatePlaylist(await response.json());
+          writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist));
+          status.textContent = `Loaded ${playlist.tracks.length} tracks for this browser.`;
+        }
+        showToast('Playlist refreshed.');
+      } catch (error) {
+        status.textContent = error.message || 'Playlist refresh failed.';
+      } finally {
+        refreshPlaylistButton.disabled = false;
+      }
+    });
+
+    resetPlaylistButton.addEventListener('click', () => {
+      removeStorage(PLAYLIST_URL_KEY);
+      removeStorage(PLAYLIST_JSON_KEY);
+      fillAdminInputs();
+      status.textContent = 'Playlist reset.';
+      showToast('Playlist reset.');
     });
   }
 
   const albumPlayer = document.querySelector('[data-album-player]');
   if (!albumPlayer) return;
 
+  const albumStage = albumPlayer.querySelector('[data-album-stage]');
   const albumVideo = albumPlayer.querySelector('[data-album-video]');
   const albumFallback = albumPlayer.querySelector('[data-album-fallback]');
   const albumCover = albumPlayer.querySelector('[data-album-cover]');
@@ -174,6 +292,18 @@
   const albumList = albumPlayer.querySelector('[data-album-list]');
   const albumMp3 = albumPlayer.querySelector('[data-album-mp3]');
   const albumSuno = albumPlayer.querySelector('[data-album-suno]');
+  const albumPrev = albumPlayer.querySelector('[data-album-prev]');
+  const albumNext = albumPlayer.querySelector('[data-album-next]');
+  const startAlbumButtons = document.querySelectorAll('[data-start-album]');
+  let playlistTracks = [];
+  let activeTrackIndex = 0;
+  let pendingStartAlbum = false;
+
+  albumVideo.muted = true;
+  albumVideo.loop = true;
+  albumVideo.playsInline = true;
+  albumVideo.setAttribute('playsinline', '');
+  albumVideo.setAttribute('webkit-playsinline', '');
 
   const shorten = (text, limit = 220) => {
     if (!text) return '';
@@ -194,7 +324,29 @@
       });
   };
 
-  const setActiveTrack = (track, shouldPlayAudio = false) => {
+  const isMobileViewport = () => window.matchMedia('(max-width: 920px)').matches;
+
+  const scrollToAlbumStage = () => {
+    albumStage.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const playStageVideo = () => {
+    const play = () => albumVideo.play().catch(() => {});
+    if (albumVideo.readyState >= 2) {
+      play();
+    } else {
+      albumVideo.addEventListener('loadeddata', play, { once: true });
+    }
+  };
+
+  const setActiveTrack = (trackOrIndex, options = {}) => {
+    if (!playlistTracks.length) return;
+    const index = typeof trackOrIndex === 'number'
+      ? ((trackOrIndex % playlistTracks.length) + playlistTracks.length) % playlistTracks.length
+      : playlistTracks.findIndex((track) => track.number === trackOrIndex.number);
+    activeTrackIndex = index < 0 ? 0 : index;
+    const track = playlistTracks[activeTrackIndex];
+
     albumTitle.textContent = track.title;
     albumCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.');
     albumPanelTitle.textContent = track.title;
@@ -208,19 +360,34 @@
     albumMp3.href = track.audioUrl;
     albumSuno.href = track.sunoUrl;
 
-    albumAudio.src = track.audioUrl;
+    if (albumAudio.getAttribute('src') !== track.audioUrl) {
+      albumAudio.src = track.audioUrl;
+      albumAudio.load();
+    }
     albumVideo.poster = track.imageUrl;
-    albumVideo.src = track.videoUrl;
-    albumVideo.load();
-    albumVideo.play().catch(() => {});
+    if (track.videoUrl) {
+      albumVideo.src = track.videoUrl;
+      albumVideo.load();
+      playStageVideo();
+    }
 
     albumList.querySelectorAll('.track-button').forEach((button) => {
       button.setAttribute('aria-pressed', String(Number(button.dataset.trackNumber) === track.number));
     });
 
-    if (shouldPlayAudio) {
-      albumAudio.play().catch(() => showToast('Press play to start audio.'));
+    if (options.scroll) window.setTimeout(scrollToAlbumStage, 80);
+    if (options.playAudio) {
+      albumAudio.play()
+        .then(playStageVideo)
+        .catch(() => {
+          playStageVideo();
+          showToast('Press play to start audio.');
+        });
     }
+  };
+
+  const playRelativeTrack = (offset, shouldScroll = false) => {
+    setActiveTrack(activeTrackIndex + offset, { playAudio: true, scroll: shouldScroll });
   };
 
   const buildTrackButton = (track) => {
@@ -249,19 +416,58 @@
 
     copy.append(title, tags);
     button.append(number, copy, duration);
-    button.addEventListener('click', () => setActiveTrack(track, true));
+    button.addEventListener('click', () => setActiveTrack(track, { playAudio: true, scroll: isMobileViewport() }));
     return button;
   };
 
-  fetch('/assets/music/playlist.json')
-    .then((response) => {
-      if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
-      return response.json();
-    })
+  const loadPlaylist = async () => {
+    const storedJson = readStorage(PLAYLIST_JSON_KEY);
+    if (storedJson) {
+      try {
+        return JSON.parse(storedJson);
+      } catch (_) {
+        removeStorage(PLAYLIST_JSON_KEY);
+      }
+    }
+
+    const storedUrl = readStorage(PLAYLIST_URL_KEY);
+    if (storedUrl && !storedUrl.includes('suno.com/playlist/')) {
+      const response = await fetch(storedUrl, { cache: 'no-store' });
+      if (response.ok) return response.json();
+    }
+
+    const response = await fetch(DEFAULT_PLAYLIST_JSON_URL);
+    if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
+    return response.json();
+  };
+
+  albumAudio.addEventListener('play', playStageVideo);
+  albumAudio.addEventListener('pause', () => {
+    if (!albumAudio.ended) albumVideo.pause();
+  });
+  albumAudio.addEventListener('ended', () => playRelativeTrack(1));
+  albumPrev.addEventListener('click', () => playRelativeTrack(-1));
+  albumNext.addEventListener('click', () => playRelativeTrack(1));
+
+  startAlbumButtons.forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (playlistTracks.length) {
+        setActiveTrack(0, { playAudio: true, scroll: true });
+      } else {
+        pendingStartAlbum = true;
+        document.querySelector('#album')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    });
+  });
+
+  loadPlaylist()
     .then((playlist) => {
+      playlistTracks = playlist.tracks.filter((track) => track.audioUrl && track.videoUrl);
       albumList.replaceChildren();
-      playlist.tracks.forEach((track) => albumList.append(buildTrackButton(track)));
-      setActiveTrack(playlist.tracks[0]);
+      playlistTracks.forEach((track) => albumList.append(buildTrackButton(track)));
+      setActiveTrack(0);
+      if (pendingStartAlbum) setActiveTrack(0, { playAudio: true, scroll: true });
     })
     .catch(() => {
       albumTitle.textContent = 'Album unavailable';
@@ -271,7 +477,7 @@
       albumList.textContent = '';
       const fallbackLink = document.createElement('a');
       fallbackLink.className = 'inline-link';
-      fallbackLink.href = 'https://suno.com/playlist/88bd44ac-eb0c-4751-a865-f2a4597dc5bb';
+      fallbackLink.href = DEFAULT_SUNO_PLAYLIST_URL;
       fallbackLink.target = '_blank';
       fallbackLink.rel = 'noopener';
       fallbackLink.textContent = 'Open the Suno playlist';

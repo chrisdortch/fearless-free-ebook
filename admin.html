@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fearless Admin | RollinD</title>
+    <meta name="description" content="Local static admin controls for the Fearless free ebook site." />
+    <meta name="author" content="RollinD" />
+    <meta property="og:title" content="Fearless Admin" />
+    <meta property="og:description" content="Local static admin controls for the Fearless free ebook site." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://fearless-free-ebook.vercel.app/assets/images/sigil-eye.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://fearless-free-ebook.vercel.app/assets/images/sigil-eye.jpg" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body class="admin-page">
+    <header class="site-header" data-scroll-header>
+      <a class="brand" href="/" aria-label="Fearless home">
+        <img class="brand-logo" src="/assets/images/rollind-logo.jpg" alt="" width="36" height="36" />
+        <span>Fearless</span>
+      </a>
+      <a class="nav-cta" href="/">Site</a>
+    </header>
+
+    <main class="admin-main shell" data-admin>
+      <section class="admin-card" data-admin-lock>
+        <p class="eyebrow">Admin</p>
+        <h1>Enter PIN</h1>
+        <div class="admin-form-row">
+          <input data-admin-pin type="password" inputmode="numeric" autocomplete="off" placeholder="PIN" aria-label="Admin PIN" />
+          <button class="button button-primary" type="button" data-admin-unlock>Enter</button>
+        </div>
+        <p class="admin-status" data-admin-lock-status></p>
+      </section>
+
+      <section class="admin-card" data-admin-panel hidden>
+        <p class="eyebrow">Admin</p>
+        <h1>Site Controls</h1>
+        <label class="admin-label">
+          <span>Book link</span>
+          <input data-admin-book-url type="url" />
+        </label>
+        <div class="admin-actions">
+          <button class="button button-primary" type="button" data-admin-save-book>Save book link</button>
+          <button class="button button-secondary" type="button" data-admin-reset-book>Reset book link</button>
+        </div>
+        <label class="admin-label">
+          <span>Playlist URL</span>
+          <input data-admin-playlist-url type="url" />
+        </label>
+        <div class="admin-actions">
+          <button class="button button-primary" type="button" data-admin-refresh-playlist>Refresh playlist</button>
+          <button class="button button-secondary" type="button" data-admin-reset-playlist>Reset playlist</button>
+        </div>
+        <p class="admin-status" data-admin-status></p>
+      </section>
+    </main>
+    <div class="toast" role="status" aria-live="polite" data-toast>Saved.</div>
+    <script src="/script.js" defer></script>
+  </body>
+</html>

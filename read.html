@@ -3,20 +3,22 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Read Fearless Free | RollinD</title>
-    <meta name="description" content="Read Fearless: The Altar of Light and Darkness by RollinD free in your browser, save your page, or download the ebook." />
+    <title>Open Fearless PDF | RollinD</title>
+    <meta name="description" content="Open Fearless: The Altar of Light and Darkness by RollinD free in your browser PDF viewer." />
     <meta name="author" content="RollinD" />
-    <meta property="og:title" content="Read Fearless Free" />
-    <meta property="og:description" content="Open the free illustrated Fearless ebook by RollinD in your browser." />
+    <meta property="og:title" content="Open Fearless PDF" />
+    <meta property="og:description" content="Open the free illustrated Fearless ebook by RollinD in your browser PDF viewer." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="/assets/images/og-image.jpg" />
+    <meta property="og:image" content="https://fearless-free-ebook.vercel.app/assets/images/sigil-eye.jpg" />
+    <meta property="og:image:alt" content="A cosmic eye holding light and shadow in balance" />
     <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://fearless-free-ebook.vercel.app/assets/images/sigil-eye.jpg" />
     <link rel="icon" type="image/png" href="/favicon.png" />
     <link rel="manifest" href="/site.webmanifest" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body class="reader-page">
-    <a class="skip-link" href="#reader-frame">Skip to reader</a>
+    <a class="skip-link" href="#open-pdf">Skip to PDF link</a>
     <header class="site-header" data-scroll-header>
       <a class="brand" href="/" aria-label="Fearless home">
         <img class="brand-logo" src="/assets/images/rollind-logo.jpg" alt="" width="36" height="36" />
@@ -31,35 +33,19 @@
       </nav>
     </header>
 
-    <main class="reader-main" data-pdf-reader data-pdf-src="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf" data-total-pages="295">
+    <main class="reader-main reader-launcher" data-pdf-launcher data-pdf-src="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf">
       <section class="reader-hero shell">
         <div class="reader-heading">
-          <p class="eyebrow">Free browser reader</p>
+          <p class="eyebrow">Browser PDF viewer</p>
           <h1>Fearless</h1>
           <p>The Altar of Light and Darkness by RollinD.</p>
         </div>
-        <div class="reader-toolbar" aria-label="PDF reading controls">
-          <label class="reader-page-control" for="reader-page-input">
-            <span>Page</span>
-            <input id="reader-page-input" data-reader-page type="number" min="1" max="295" inputmode="numeric" value="1" />
-          </label>
-          <button class="button button-primary" type="button" data-reader-go>Go</button>
-          <button class="button button-secondary" type="button" data-reader-save>Save spot</button>
-          <button class="button button-secondary" type="button" data-reader-resume>Resume</button>
-          <a class="button button-secondary" href="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf#page=1&view=FitH" target="_blank" rel="noopener" data-reader-open>Open PDF</a>
-          <a class="button button-ghost" href="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf" download>Download copy</a>
-          <p class="reader-status" data-reader-status>Ready.</p>
+        <div class="reader-toolbar" aria-label="PDF opening controls">
+          <a id="open-pdf" class="button button-primary" href="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf" target="_blank" rel="noopener" data-book-link data-reader-open>Open PDF</a>
+          <a class="button button-secondary" href="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf" download data-book-download>Download copy</a>
+          <a class="button button-ghost" href="/">Back to site</a>
+          <p class="reader-status">The PDF opens directly in the browser's built-in viewer.</p>
         </div>
-      </section>
-
-      <section class="reader-frame-shell shell" aria-label="Fearless PDF reader">
-        <iframe
-          id="reader-frame"
-          class="pdf-frame"
-          data-reader-frame
-          title="Fearless: The Altar of Light and Darkness PDF"
-          src="/downloads/Fearless_Book1_RollinD_Free_Ebook.pdf#page=1&view=FitH"
-        ></iframe>
       </section>
     </main>
 
