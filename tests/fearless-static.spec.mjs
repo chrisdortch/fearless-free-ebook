@@ -6,7 +6,7 @@ test('reader can navigate the static book, album, and artwork experience', async
   const response = await page.goto('/', { waitUntil: 'domcontentloaded' });
   expect(response?.ok()).toBeTruthy();
   await expect(page).toHaveTitle(/Fearless: The Altar of Light and Darkness/i);
-  await expect(page.getByRole('heading', { name: 'The Altar of Light and Darkness' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'The Altar of Light and Darkness' })).toBeVisible();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
