@@ -48,9 +48,10 @@ test('reader can navigate the static book, album, and artwork experience', async
   await page.getByRole('button', { name: /close/i }).last().click();
   await expect(lightbox).toBeHidden();
 
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({
     path: `test-results/${testInfo.project.name}-fearless-home.png`,
-    fullPage: true
+    fullPage: false
   });
 
   const readerResponse = await page.goto('/read.html', { waitUntil: 'domcontentloaded' });
