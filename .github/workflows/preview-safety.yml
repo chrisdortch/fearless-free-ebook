@@ -1,0 +1,54 @@
+name: Clover preview safety
+
+on:
+  push:
+    branches:
+      - 'chatpro/**'
+      - 'agent/**'
+      - 'codex/**'
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clover-preview-${{ github.repository }}-${{ github.head_ref || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate preview candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOVER_BUILD_MODE: preview-only
+
+    steps:
+      - name: Check out exact candidate commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Run policy-bound Clover validation
+        run: node scripts/clover-build.mjs
+
+      - name: Upload Clover receipt and browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: clover-build-receipt-${{ github.event.pull_request.head.sha || github.sha }}
+          path: |
+            .clover/artifacts/build-receipt.json
+            .clover/artifacts/playwright-report
+            test-results
+          if-no-files-found: warn
+          retention-days: 30
