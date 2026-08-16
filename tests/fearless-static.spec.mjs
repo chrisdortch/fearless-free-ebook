@@ -15,7 +15,7 @@ test('reader can navigate the static book, album, and artwork experience', async
   await expect(pdfLink).toHaveAttribute('href', /Fearless_Book1_RollinD_Free_Ebook\.pdf$/);
 
   if (testInfo.project.name === 'mobile-webkit') {
-    const menuButton = page.locator('.nav-toggle');
+    const menuButton = page.locator('[data-menu-toggle]');
     await expect(menuButton).toBeVisible();
     await menuButton.click();
     await expect(menuButton).toHaveAttribute('aria-expanded', 'true');
