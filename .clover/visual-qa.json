@@ -1,0 +1,109 @@
+{
+  "schemaVersion": "1.0",
+  "protocolVersion": "1.0.0",
+  "project": {
+    "id": "fearless-free-ebook",
+    "title": "Fearless Free Ebook",
+    "repository": "chrisdortch/fearless-free-ebook",
+    "productionBranch": "main"
+  },
+  "mode": "deterministic-first",
+  "browsers": {
+    "requiredProjects": [
+      "desktop-chromium",
+      "mobile-webkit"
+    ]
+  },
+  "evidence": {
+    "directory": ".clover/artifacts/visual-qa",
+    "screenshotsDirectory": ".clover/artifacts/visual-qa/screenshots",
+    "receiptsDirectory": ".clover/artifacts/visual-qa/receipts",
+    "screenshotType": "jpeg",
+    "screenshotQuality": 72,
+    "screenshotScale": "css",
+    "fullPageCaptureAllowed": false,
+    "maxModelReviewScreenshots": 4
+  },
+  "checks": {
+    "tapTargetMinimumPx": 40,
+    "textMinimumPx": 12,
+    "maxReportedElements": 12,
+    "hard": [
+      "required-visual-state-captured",
+      "no-horizontal-overflow",
+      "no-visible-broken-images",
+      "no-page-errors",
+      "no-unexpected-console-errors",
+      "no-same-origin-request-failures"
+    ]
+  },
+  "review": {
+    "baselineStatus": "unapproved",
+    "requireModelReviewOnFirstCapture": true,
+    "forceReviewEnv": "CLOVER_FORCE_MODEL_REVIEW",
+    "uiPathPatterns": [
+      "*.html",
+      "*.css",
+      "script.js",
+      "assets/images/**",
+      "assets/music/playlist.json",
+      "site.webmanifest",
+      "favicon.png",
+      "playwright.config.*"
+    ],
+    "nonVisualPathPatterns": [
+      ".clover/**",
+      ".github/**",
+      "docs/**",
+      "scripts/**",
+      "tests/**",
+      "CODEX_PROMPT.md",
+      "README.md",
+      ".gitignore"
+    ]
+  },
+  "network": {
+    "ignoreResourceTypes": [
+      "media"
+    ],
+    "ignoreExtensions": [
+      ".mp3",
+      ".mp4",
+      ".m4a",
+      ".wav"
+    ],
+    "ignoreUrlPatterns": []
+  },
+  "console": {
+    "ignorePatterns": []
+  },
+  "capturePlan": [
+    {
+      "stateId": "reader-home",
+      "priority": 100
+    },
+    {
+      "stateId": "mobile-navigation",
+      "priority": 95
+    },
+    {
+      "stateId": "album-lyrics",
+      "priority": 85
+    },
+    {
+      "stateId": "artwork-lightbox",
+      "priority": 80
+    },
+    {
+      "stateId": "book-reader",
+      "priority": 70
+    }
+  ],
+  "boundaries": {
+    "productionMutationAuthorized": false,
+    "productionDeploymentAuthorized": false,
+    "productionDataMutationAuthorized": false,
+    "browserCredentialsAllowed": false,
+    "externalWritesAllowed": false
+  }
+}
