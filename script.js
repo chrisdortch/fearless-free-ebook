@@ -36,7 +36,19 @@
   const removeStorage = (key) => {
     try {
       window.localStorage.removeItem(key);
-    } catch (_) {}
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const normalizePlaylist = (playlist) => {
+    if (!playlist || !Array.isArray(playlist.tracks)) throw new Error('No tracks found.');
+    const tracks = playlist.tracks.filter((track) => track &&
+      typeof track.audioUrl === 'string' && track.audioUrl.trim() &&
+      typeof track.videoUrl === 'string' && track.videoUrl.trim());
+    if (!tracks.length) throw new Error('No playable tracks found.');
+    return { ...playlist, tracks };
   };
 
   const getBookUrl = () => readStorage(BOOK_URL_KEY) || DEFAULT_BOOK_URL;
@@ -200,14 +212,11 @@
     const resetPlaylistButton = adminRoot.querySelector('[data-admin-reset-playlist]');
 
     const validatePlaylist = (playlist) => {
-      if (!playlist || !Array.isArray(playlist.tracks) || !playlist.tracks.length) {
-        throw new Error('No tracks found.');
+      const normalized = normalizePlaylist(playlist);
+      if (normalized.tracks.length !== playlist.tracks.length) {
+        throw new Error('Every track needs audio and video URLs.');
       }
-      const missingVideo = playlist.tracks.filter((track) => !track.videoUrl);
-      if (missingVideo.length) {
-        throw new Error('Every track needs a video URL.');
-      }
-      return playlist;
+      return normalized;
     };
 
     const fillAdminInputs = () => {
@@ -221,7 +230,9 @@
       fillAdminInputs();
     };
 
-    if (window.sessionStorage?.getItem(ADMIN_UNLOCKED_KEY) === 'true') showPanel();
+    try {
+      if (window.sessionStorage.getItem(ADMIN_UNLOCKED_KEY) === 'true') showPanel();
+    } catch (_) {}
 
     const unlock = () => {
       if (pinInput.value.trim() !== ADMIN_PIN) {
@@ -242,7 +253,11 @@
 
     saveBookButton.addEventListener('click', () => {
       const nextUrl = bookInput.value.trim() || DEFAULT_BOOK_URL;
-      writeStorage(BOOK_URL_KEY, nextUrl);
+      if (!writeStorage(BOOK_URL_KEY, nextUrl)) {
+        status.textContent = 'Book link could not be saved. This browser may have blocked storage or run out of space.';
+        showToast('Book link not saved.');
+        return;
+      }
       applyBookLinks();
       notifySiteUpdate('book');
       status.textContent = 'Book link saved for this browser. Full URLs work.';
@@ -250,7 +265,11 @@
     });
 
     resetBookButton.addEventListener('click', () => {
-      removeStorage(BOOK_URL_KEY);
+      if (!removeStorage(BOOK_URL_KEY)) {
+        status.textContent = 'Book link could not be reset. The existing browser setting remains.';
+        showToast('Book link not reset.');
+        return;
+      }
       fillAdminInputs();
       applyBookLinks();
       notifySiteUpdate('book');
@@ -260,21 +279,26 @@
 
     refreshPlaylistButton.addEventListener('click', async () => {
       const source = playlistInput.value.trim() || DEFAULT_SUNO_PLAYLIST_URL;
-      writeStorage(PLAYLIST_URL_KEY, source);
       refreshPlaylistButton.disabled = true;
       status.textContent = 'Refreshing playlist...';
       try {
+        let playlist;
         if (source.includes('suno.com/playlist/')) {
-          const playlist = validatePlaylist(await fetch(DEFAULT_PLAYLIST_JSON_URL, { cache: 'no-store' }).then((response) => response.json()));
-          writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist));
-          status.textContent = `Suno playlist URL saved. Static playlist loaded with ${playlist.tracks.length} tracks for this browser.`;
+          const response = await fetch(DEFAULT_PLAYLIST_JSON_URL, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
+          playlist = validatePlaylist(await response.json());
         } else {
           const response = await fetch(source, { cache: 'no-store' });
           if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
-          const playlist = validatePlaylist(await response.json());
-          writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist));
-          status.textContent = `Loaded ${playlist.tracks.length} tracks for this browser.`;
+          playlist = validatePlaylist(await response.json());
         }
+        if (!writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist))) {
+          throw new Error('Playlist could not be saved. Existing browser settings were retained.');
+        }
+        const sourceSaved = writeStorage(PLAYLIST_URL_KEY, source);
+        status.textContent = sourceSaved
+          ? `Saved ${playlist.tracks.length} tracks for this browser. Suno links use the built-in static track list.`
+          : `Saved ${playlist.tracks.length} tracks, but the source URL could not be saved. The previous URL setting remains.`;
         notifySiteUpdate('playlist');
         showToast('Playlist refreshed.');
       } catch (error) {
@@ -285,12 +309,14 @@
     });
 
     resetPlaylistButton.addEventListener('click', () => {
-      removeStorage(PLAYLIST_URL_KEY);
-      removeStorage(PLAYLIST_JSON_KEY);
+      const sourceRemoved = removeStorage(PLAYLIST_URL_KEY);
+      const playlistRemoved = removeStorage(PLAYLIST_JSON_KEY);
       fillAdminInputs();
       notifySiteUpdate('playlist');
-      status.textContent = 'Playlist reset.';
-      showToast('Playlist reset.');
+      status.textContent = sourceRemoved && playlistRemoved
+        ? 'Playlist reset.'
+        : 'Playlist could not be fully reset. Some browser settings remain; retry when storage is available.';
+      showToast(sourceRemoved && playlistRemoved ? 'Playlist reset.' : 'Playlist not fully reset.');
     });
   }
 
@@ -478,7 +504,7 @@
     const storedJson = readStorage(PLAYLIST_JSON_KEY);
     if (storedJson) {
       try {
-        return JSON.parse(storedJson);
+        return normalizePlaylist(JSON.parse(storedJson));
       } catch (_) {
         removeStorage(PLAYLIST_JSON_KEY);
       }
@@ -486,13 +512,15 @@
 
     const storedUrl = readStorage(PLAYLIST_URL_KEY);
     if (storedUrl && !storedUrl.includes('suno.com/playlist/')) {
-      const response = await fetch(storedUrl, { cache: 'no-store' });
-      if (response.ok) return response.json();
+      try {
+        const response = await fetch(storedUrl, { cache: 'no-store' });
+        if (response.ok) return normalizePlaylist(await response.json());
+      } catch (_) {}
     }
 
     const response = await fetch(DEFAULT_PLAYLIST_JSON_URL);
     if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
-    return response.json();
+    return normalizePlaylist(await response.json());
   };
 
   albumAudio.addEventListener('play', () => {
