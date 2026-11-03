@@ -36,7 +36,19 @@
   const removeStorage = (key) => {
     try {
       window.localStorage.removeItem(key);
-    } catch (_) {}
+      return true;
+    } catch (_) {
+      return false;
+    }
+  };
+
+  const normalizePlaylist = (playlist) => {
+    if (!playlist || !Array.isArray(playlist.tracks)) throw new Error('No tracks found.');
+    const tracks = playlist.tracks.filter((track) => track &&
+      typeof track.audioUrl === 'string' && track.audioUrl.trim() &&
+      typeof track.videoUrl === 'string' && track.videoUrl.trim());
+    if (!tracks.length) throw new Error('No playable tracks found.');
+    return { ...playlist, tracks };
   };
 
   const getBookUrl = () => readStorage(BOOK_URL_KEY) || DEFAULT_BOOK_URL;
@@ -200,14 +212,11 @@
     const resetPlaylistButton = adminRoot.querySelector('[data-admin-reset-playlist]');
 
     const validatePlaylist = (playlist) => {
-      if (!playlist || !Array.isArray(playlist.tracks) || !playlist.tracks.length) {
-        throw new Error('No tracks found.');
+      const normalized = normalizePlaylist(playlist);
+      if (normalized.tracks.length !== playlist.tracks.length) {
+        throw new Error('Every track needs audio and video URLs.');
       }
-      const missingVideo = playlist.tracks.filter((track) => !track.videoUrl);
-      if (missingVideo.length) {
-        throw new Error('Every track needs a video URL.');
-      }
-      return playlist;
+      return normalized;
     };
 
     const fillAdminInputs = () => {
@@ -221,7 +230,9 @@
       fillAdminInputs();
     };
 
-    if (window.sessionStorage?.getItem(ADMIN_UNLOCKED_KEY) === 'true') showPanel();
+    try {
+      if (window.sessionStorage.getItem(ADMIN_UNLOCKED_KEY) === 'true') showPanel();
+    } catch (_) {}
 
     const unlock = () => {
       if (pinInput.value.trim() !== ADMIN_PIN) {
@@ -242,7 +253,11 @@
 
     saveBookButton.addEventListener('click', () => {
       const nextUrl = bookInput.value.trim() || DEFAULT_BOOK_URL;
-      writeStorage(BOOK_URL_KEY, nextUrl);
+      if (!writeStorage(BOOK_URL_KEY, nextUrl)) {
+        status.textContent = 'Book link could not be saved. This browser may have blocked storage or run out of space.';
+        showToast('Book link not saved.');
+        return;
+      }
       applyBookLinks();
       notifySiteUpdate('book');
       status.textContent = 'Book link saved for this browser. Full URLs work.';
@@ -250,7 +265,11 @@
     });
 
     resetBookButton.addEventListener('click', () => {
-      removeStorage(BOOK_URL_KEY);
+      if (!removeStorage(BOOK_URL_KEY)) {
+        status.textContent = 'Book link could not be reset. The existing browser setting remains.';
+        showToast('Book link not reset.');
+        return;
+      }
       fillAdminInputs();
       applyBookLinks();
       notifySiteUpdate('book');
@@ -260,21 +279,26 @@
 
     refreshPlaylistButton.addEventListener('click', async () => {
       const source = playlistInput.value.trim() || DEFAULT_SUNO_PLAYLIST_URL;
-      writeStorage(PLAYLIST_URL_KEY, source);
       refreshPlaylistButton.disabled = true;
       status.textContent = 'Refreshing playlist...';
       try {
+        let playlist;
         if (source.includes('suno.com/playlist/')) {
-          const playlist = validatePlaylist(await fetch(DEFAULT_PLAYLIST_JSON_URL, { cache: 'no-store' }).then((response) => response.json()));
-          writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist));
-          status.textContent = `Suno playlist URL saved. Static playlist loaded with ${playlist.tracks.length} tracks for this browser.`;
+          const response = await fetch(DEFAULT_PLAYLIST_JSON_URL, { cache: 'no-store' });
+          if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
+          playlist = validatePlaylist(await response.json());
         } else {
           const response = await fetch(source, { cache: 'no-store' });
           if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
-          const playlist = validatePlaylist(await response.json());
-          writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist));
-          status.textContent = `Loaded ${playlist.tracks.length} tracks for this browser.`;
+          playlist = validatePlaylist(await response.json());
         }
+        if (!writeStorage(PLAYLIST_JSON_KEY, JSON.stringify(playlist))) {
+          throw new Error('Playlist could not be saved. Existing browser settings were retained.');
+        }
+        const sourceSaved = writeStorage(PLAYLIST_URL_KEY, source);
+        status.textContent = sourceSaved
+          ? `Saved ${playlist.tracks.length} tracks for this browser. Suno links use the built-in static track list.`
+          : `Saved ${playlist.tracks.length} tracks, but the source URL could not be saved. The previous URL setting remains.`;
         notifySiteUpdate('playlist');
         showToast('Playlist refreshed.');
       } catch (error) {
@@ -285,14 +309,41 @@
     });
 
     resetPlaylistButton.addEventListener('click', () => {
-      removeStorage(PLAYLIST_URL_KEY);
-      removeStorage(PLAYLIST_JSON_KEY);
+      const sourceRemoved = removeStorage(PLAYLIST_URL_KEY);
+      const playlistRemoved = removeStorage(PLAYLIST_JSON_KEY);
       fillAdminInputs();
       notifySiteUpdate('playlist');
-      status.textContent = 'Playlist reset.';
-      showToast('Playlist reset.');
+      status.textContent = sourceRemoved && playlistRemoved
+        ? 'Playlist reset.'
+        : 'Playlist could not be fully reset. Some browser settings remain; retry when storage is available.';
+      showToast(sourceRemoved && playlistRemoved ? 'Playlist reset.' : 'Playlist not fully reset.');
     });
   }
+
+  // Preserve the exact recordings already offered in the companion album ZIP.
+  // Resolve known legacy URLs at playback time so cached playlists keep working.
+  // Unrelated custom media URLs and the saved playlist itself remain unchanged.
+  const BUNDLED_AUDIO_PATHS = new Map([
+    ['https://cdn1.suno.ai/a40c985d-7b03-4782-bb4d-10aa5d6edaf6.mp3', '/assets/music/audio/f2a3fd9cb3da/01-soul-stillness-remix-4.mp3'],
+    ['https://cdn1.suno.ai/cfa978d9-7724-49da-a313-83012eaca269.mp3', '/assets/music/audio/f2a3fd9cb3da/02-frequency-of-conscience-remix-8.mp3'],
+    ['https://cdn1.suno.ai/63c11a21-2ba0-4950-a7b6-cb04bcf36347.mp3', '/assets/music/audio/f2a3fd9cb3da/03-one-good-one-remix-4.mp3'],
+    ['https://cdn1.suno.ai/f569b481-c57c-4ff5-88f3-5448bd565a82.mp3', '/assets/music/audio/f2a3fd9cb3da/04-mother-of-light-the-shadow-taught-me-remix.mp3'],
+    ['https://cdn1.suno.ai/bbec9162-a851-4de9-b7b0-293248be9f65.mp3', '/assets/music/audio/f2a3fd9cb3da/05-the-dance-of-sun-shade-let-the-shadows-teach-the-flame-r.mp3'],
+    ['https://cdn1.suno.ai/7d46397e-2b93-4041-8ba0-f20f4e95dcd3.mp3', '/assets/music/audio/f2a3fd9cb3da/06-hallelujah-of-hell-no-dd-collab.mp3'],
+    ['https://cdn1.suno.ai/eef8b3e1-c258-487d-b8b6-1af97a3159a3.mp3', '/assets/music/audio/f2a3fd9cb3da/07-hush-now-hush-remix-9.mp3'],
+    ['https://cdn1.suno.ai/d162862b-c390-47bd-973d-9a5c478b2cb6.mp3', '/assets/music/audio/f2a3fd9cb3da/08-pity-is-not-love-dd-colab.mp3'],
+    ['https://cdn1.suno.ai/7b5bc18a-e27d-4ee8-bac9-94f58e7639c5.mp3', '/assets/music/audio/f2a3fd9cb3da/09-mother-of-light-one-remixed.mp3'],
+    ['https://cdn1.suno.ai/80c9557f-84a5-4691-ad9b-92f3fb1325b6.mp3', '/assets/music/audio/f2a3fd9cb3da/10-fearless-heart-remix-glow-4.mp3'],
+    ['https://cdn1.suno.ai/061c9363-e26d-4d66-b80f-d35dc1ff6581.mp3', '/assets/music/audio/f2a3fd9cb3da/11-the-sacred-trust-remix-5.mp3'],
+    ['https://cdn1.suno.ai/9d1a1ce2-8bac-4612-b617-0ade63a3226e.mp3', '/assets/music/audio/f2a3fd9cb3da/12-the-dance-of-sun-shade-remix-2.mp3'],
+    ['https://cdn1.suno.ai/24ee87e6-996f-4d22-8640-5391aec70854.mp3', '/assets/music/audio/f2a3fd9cb3da/13-the-gray-between-by-rolln-d.mp3'],
+    ['https://cdn1.suno.ai/140d7ed1-f30e-4740-884a-bb58699de6a3.mp3', '/assets/music/audio/f2a3fd9cb3da/14-dark-irony.mp3'],
+    ['https://cdn1.suno.ai/a58ed870-768d-4ba7-b61b-403f19e81e9d.mp3', '/assets/music/audio/f2a3fd9cb3da/15-the-unguarded-clownunderestimated-by-design.mp3'],
+    ['https://cdn1.suno.ai/0b6be4dc-b800-4481-945a-0633f954d5ca.mp3', '/assets/music/audio/f2a3fd9cb3da/16-light-irony-one-light-can-heal-it-all.mp3'],
+    ['https://cdn1.suno.ai/6eeffbe5-b6cf-44d1-804f-83db34f11139.mp3', '/assets/music/audio/f2a3fd9cb3da/17-oreo-the-balance-of-creation.mp3'],
+    ['https://cdn1.suno.ai/da788e9d-e35e-43c2-a4ed-bc4d0e4cde8f.mp3', '/assets/music/audio/f2a3fd9cb3da/18-bartholomews-blunder-remix-3.mp3']
+  ]);
+  const resolveAudioUrl = (audioUrl) => BUNDLED_AUDIO_PATHS.get(audioUrl) || audioUrl;
 
   const albumPlayer = document.querySelector('[data-album-player]');
   if (!albumPlayer) return;
@@ -323,6 +374,8 @@
   let playlistTracks = [];
   let activeTrackIndex = 0;
   let pendingStartAlbum = false;
+  let playbackRequestId = 0;
+  let playbackStatus = '';
 
   albumVideo.muted = true;
   albumVideo.loop = true;
@@ -365,11 +418,21 @@
 
   const syncPlaybackUi = () => {
     if (!albumToggle || !albumState) return;
-    const isPlaying = !albumAudio.paused && !albumAudio.ended;
+    const isPlaying = !albumAudio.paused && !albumAudio.ended && !albumAudio.error;
     albumToggle.textContent = isPlaying ? 'Pause' : 'Play';
     albumToggle.setAttribute('aria-pressed', String(isPlaying));
-    albumState.hidden = !isPlaying;
-    albumState.textContent = 'Now Playing';
+    albumState.hidden = !isPlaying && !playbackStatus;
+    albumState.textContent = playbackStatus || 'Now Playing';
+  };
+
+  const reportAudioFailure = (error) => {
+    // Track changes can interrupt an older play request without a media failure.
+    if (error?.name === 'AbortError' || error?.code === 1) return;
+    playbackStatus = error?.name === 'NotAllowedError'
+      ? 'Press play to start audio.'
+      : 'Audio unavailable. Try another track or download the album.';
+    syncPlaybackUi();
+    showToast(playbackStatus);
   };
 
   const isMobileViewport = () => window.matchMedia('(max-width: 920px)').matches;
@@ -394,6 +457,9 @@
       : playlistTracks.findIndex((track) => track.number === trackOrIndex.number);
     activeTrackIndex = index < 0 ? 0 : index;
     const track = playlistTracks[activeTrackIndex];
+    const requestId = ++playbackRequestId;
+    playbackStatus = '';
+    const audioUrl = resolveAudioUrl(track.audioUrl);
 
     albumTitle.textContent = track.title;
     albumCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.');
@@ -401,11 +467,11 @@
     albumPanelCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.', 180);
     renderTags(track.tags);
 
-    albumMp3.href = track.audioUrl;
+    albumMp3.href = audioUrl;
     albumSuno.href = track.sunoUrl;
 
-    if (albumAudio.getAttribute('src') !== track.audioUrl) {
-      albumAudio.src = track.audioUrl;
+    if (albumAudio.getAttribute('src') !== audioUrl || albumAudio.error) {
+      albumAudio.src = audioUrl;
       albumAudio.load();
     }
 
@@ -430,11 +496,11 @@
     if (options.scroll) window.setTimeout(scrollToAlbumStage, 80);
     if (options.playAudio) {
       albumAudio.play()
-        .then(playStageVideo)
-        .catch(() => {
-          playStageVideo();
-          syncPlaybackUi();
-          showToast('Press play to start audio.');
+        .then(() => {
+          if (requestId === playbackRequestId) playStageVideo();
+        })
+        .catch((error) => {
+          if (requestId === playbackRequestId) reportAudioFailure(error);
         });
     }
     syncPlaybackUi();
@@ -478,7 +544,7 @@
     const storedJson = readStorage(PLAYLIST_JSON_KEY);
     if (storedJson) {
       try {
-        return JSON.parse(storedJson);
+        return normalizePlaylist(JSON.parse(storedJson));
       } catch (_) {
         removeStorage(PLAYLIST_JSON_KEY);
       }
@@ -486,16 +552,23 @@
 
     const storedUrl = readStorage(PLAYLIST_URL_KEY);
     if (storedUrl && !storedUrl.includes('suno.com/playlist/')) {
-      const response = await fetch(storedUrl, { cache: 'no-store' });
-      if (response.ok) return response.json();
+      try {
+        const response = await fetch(storedUrl, { cache: 'no-store' });
+        if (response.ok) return normalizePlaylist(await response.json());
+      } catch (_) {}
     }
 
     const response = await fetch(DEFAULT_PLAYLIST_JSON_URL);
     if (!response.ok) throw new Error(`Playlist failed: ${response.status}`);
-    return response.json();
+    return normalizePlaylist(await response.json());
   };
 
+  albumAudio.addEventListener('error', () => {
+    if (albumAudio.error) reportAudioFailure(albumAudio.error);
+  });
+
   albumAudio.addEventListener('play', () => {
+    playbackStatus = '';
     playStageVideo();
     syncPlaybackUi();
   });
@@ -511,7 +584,7 @@
   albumNext.addEventListener('click', () => playRelativeTrack(1));
   albumToggle?.addEventListener('click', () => {
     if (!playlistTracks.length) return;
-    if (!albumAudio.paused && !albumAudio.ended) {
+    if (!albumAudio.paused && !albumAudio.ended && !albumAudio.error) {
       albumAudio.pause();
       return;
     }
