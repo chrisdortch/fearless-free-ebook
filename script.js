@@ -320,6 +320,31 @@
     });
   }
 
+  // Preserve the exact recordings already offered in the companion album ZIP.
+  // Resolve known legacy URLs at playback time so cached playlists keep working.
+  // Unrelated custom media URLs and the saved playlist itself remain unchanged.
+  const BUNDLED_AUDIO_PATHS = new Map([
+    ['https://cdn1.suno.ai/a40c985d-7b03-4782-bb4d-10aa5d6edaf6.mp3', '/assets/music/audio/f2a3fd9cb3da/01-soul-stillness-remix-4.mp3'],
+    ['https://cdn1.suno.ai/cfa978d9-7724-49da-a313-83012eaca269.mp3', '/assets/music/audio/f2a3fd9cb3da/02-frequency-of-conscience-remix-8.mp3'],
+    ['https://cdn1.suno.ai/63c11a21-2ba0-4950-a7b6-cb04bcf36347.mp3', '/assets/music/audio/f2a3fd9cb3da/03-one-good-one-remix-4.mp3'],
+    ['https://cdn1.suno.ai/f569b481-c57c-4ff5-88f3-5448bd565a82.mp3', '/assets/music/audio/f2a3fd9cb3da/04-mother-of-light-the-shadow-taught-me-remix.mp3'],
+    ['https://cdn1.suno.ai/bbec9162-a851-4de9-b7b0-293248be9f65.mp3', '/assets/music/audio/f2a3fd9cb3da/05-the-dance-of-sun-shade-let-the-shadows-teach-the-flame-r.mp3'],
+    ['https://cdn1.suno.ai/7d46397e-2b93-4041-8ba0-f20f4e95dcd3.mp3', '/assets/music/audio/f2a3fd9cb3da/06-hallelujah-of-hell-no-dd-collab.mp3'],
+    ['https://cdn1.suno.ai/eef8b3e1-c258-487d-b8b6-1af97a3159a3.mp3', '/assets/music/audio/f2a3fd9cb3da/07-hush-now-hush-remix-9.mp3'],
+    ['https://cdn1.suno.ai/d162862b-c390-47bd-973d-9a5c478b2cb6.mp3', '/assets/music/audio/f2a3fd9cb3da/08-pity-is-not-love-dd-colab.mp3'],
+    ['https://cdn1.suno.ai/7b5bc18a-e27d-4ee8-bac9-94f58e7639c5.mp3', '/assets/music/audio/f2a3fd9cb3da/09-mother-of-light-one-remixed.mp3'],
+    ['https://cdn1.suno.ai/80c9557f-84a5-4691-ad9b-92f3fb1325b6.mp3', '/assets/music/audio/f2a3fd9cb3da/10-fearless-heart-remix-glow-4.mp3'],
+    ['https://cdn1.suno.ai/061c9363-e26d-4d66-b80f-d35dc1ff6581.mp3', '/assets/music/audio/f2a3fd9cb3da/11-the-sacred-trust-remix-5.mp3'],
+    ['https://cdn1.suno.ai/9d1a1ce2-8bac-4612-b617-0ade63a3226e.mp3', '/assets/music/audio/f2a3fd9cb3da/12-the-dance-of-sun-shade-remix-2.mp3'],
+    ['https://cdn1.suno.ai/24ee87e6-996f-4d22-8640-5391aec70854.mp3', '/assets/music/audio/f2a3fd9cb3da/13-the-gray-between-by-rolln-d.mp3'],
+    ['https://cdn1.suno.ai/140d7ed1-f30e-4740-884a-bb58699de6a3.mp3', '/assets/music/audio/f2a3fd9cb3da/14-dark-irony.mp3'],
+    ['https://cdn1.suno.ai/a58ed870-768d-4ba7-b61b-403f19e81e9d.mp3', '/assets/music/audio/f2a3fd9cb3da/15-the-unguarded-clownunderestimated-by-design.mp3'],
+    ['https://cdn1.suno.ai/0b6be4dc-b800-4481-945a-0633f954d5ca.mp3', '/assets/music/audio/f2a3fd9cb3da/16-light-irony-one-light-can-heal-it-all.mp3'],
+    ['https://cdn1.suno.ai/6eeffbe5-b6cf-44d1-804f-83db34f11139.mp3', '/assets/music/audio/f2a3fd9cb3da/17-oreo-the-balance-of-creation.mp3'],
+    ['https://cdn1.suno.ai/da788e9d-e35e-43c2-a4ed-bc4d0e4cde8f.mp3', '/assets/music/audio/f2a3fd9cb3da/18-bartholomews-blunder-remix-3.mp3']
+  ]);
+  const resolveAudioUrl = (audioUrl) => BUNDLED_AUDIO_PATHS.get(audioUrl) || audioUrl;
+
   const albumPlayer = document.querySelector('[data-album-player]');
   if (!albumPlayer) return;
 
@@ -349,6 +374,8 @@
   let playlistTracks = [];
   let activeTrackIndex = 0;
   let pendingStartAlbum = false;
+  let playbackRequestId = 0;
+  let playbackStatus = '';
 
   albumVideo.muted = true;
   albumVideo.loop = true;
@@ -391,11 +418,21 @@
 
   const syncPlaybackUi = () => {
     if (!albumToggle || !albumState) return;
-    const isPlaying = !albumAudio.paused && !albumAudio.ended;
+    const isPlaying = !albumAudio.paused && !albumAudio.ended && !albumAudio.error;
     albumToggle.textContent = isPlaying ? 'Pause' : 'Play';
     albumToggle.setAttribute('aria-pressed', String(isPlaying));
-    albumState.hidden = !isPlaying;
-    albumState.textContent = 'Now Playing';
+    albumState.hidden = !isPlaying && !playbackStatus;
+    albumState.textContent = playbackStatus || 'Now Playing';
+  };
+
+  const reportAudioFailure = (error) => {
+    // Track changes can interrupt an older play request without a media failure.
+    if (error?.name === 'AbortError' || error?.code === 1) return;
+    playbackStatus = error?.name === 'NotAllowedError'
+      ? 'Press play to start audio.'
+      : 'Audio unavailable. Try another track or download the album.';
+    syncPlaybackUi();
+    showToast(playbackStatus);
   };
 
   const isMobileViewport = () => window.matchMedia('(max-width: 920px)').matches;
@@ -420,6 +457,9 @@
       : playlistTracks.findIndex((track) => track.number === trackOrIndex.number);
     activeTrackIndex = index < 0 ? 0 : index;
     const track = playlistTracks[activeTrackIndex];
+    const requestId = ++playbackRequestId;
+    playbackStatus = '';
+    const audioUrl = resolveAudioUrl(track.audioUrl);
 
     albumTitle.textContent = track.title;
     albumCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.');
@@ -427,11 +467,11 @@
     albumPanelCaption.textContent = shorten(track.caption || track.tags || 'Cinematic companion track.', 180);
     renderTags(track.tags);
 
-    albumMp3.href = track.audioUrl;
+    albumMp3.href = audioUrl;
     albumSuno.href = track.sunoUrl;
 
-    if (albumAudio.getAttribute('src') !== track.audioUrl) {
-      albumAudio.src = track.audioUrl;
+    if (albumAudio.getAttribute('src') !== audioUrl || albumAudio.error) {
+      albumAudio.src = audioUrl;
       albumAudio.load();
     }
 
@@ -456,11 +496,11 @@
     if (options.scroll) window.setTimeout(scrollToAlbumStage, 80);
     if (options.playAudio) {
       albumAudio.play()
-        .then(playStageVideo)
-        .catch(() => {
-          playStageVideo();
-          syncPlaybackUi();
-          showToast('Press play to start audio.');
+        .then(() => {
+          if (requestId === playbackRequestId) playStageVideo();
+        })
+        .catch((error) => {
+          if (requestId === playbackRequestId) reportAudioFailure(error);
         });
     }
     syncPlaybackUi();
@@ -523,7 +563,12 @@
     return normalizePlaylist(await response.json());
   };
 
+  albumAudio.addEventListener('error', () => {
+    if (albumAudio.error) reportAudioFailure(albumAudio.error);
+  });
+
   albumAudio.addEventListener('play', () => {
+    playbackStatus = '';
     playStageVideo();
     syncPlaybackUi();
   });
@@ -539,7 +584,7 @@
   albumNext.addEventListener('click', () => playRelativeTrack(1));
   albumToggle?.addEventListener('click', () => {
     if (!playlistTracks.length) return;
-    if (!albumAudio.paused && !albumAudio.ended) {
+    if (!albumAudio.paused && !albumAudio.ended && !albumAudio.error) {
       albumAudio.pause();
       return;
     }
