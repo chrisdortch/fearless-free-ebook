@@ -1,0 +1,110 @@
+{
+  "$schema": "https://cloverapps.ai/schemas/project-build-policy-v1.json",
+  "schemaVersion": "1.0",
+  "protocolVersion": "1.0.0",
+  "project": {
+    "id": "fearless-free-ebook",
+    "title": "Fearless Free Ebook",
+    "owner": "Chris Dortch",
+    "repository": "chrisdortch/fearless-free-ebook",
+    "vercelProjectId": "prj_gF09JSfqB5J3BOudkKasJ6cP0NuW",
+    "productionBranch": "main",
+    "productionDomain": "fearless-free-ebook.vercel.app"
+  },
+  "risk": {
+    "classification": "low",
+    "runtime": "public standalone static ebook, artwork, and companion-album website",
+    "productionData": "none",
+    "payments": false,
+    "accounts": false,
+    "forms": false,
+    "tracking": false,
+    "externalMediaProviders": [
+      "Suno"
+    ],
+    "previewDataPolicy": "No production credentials or writable data resources exist in the preview workflow"
+  },
+  "build": {
+    "defaultMode": "preview-only",
+    "allowedBranchPrefixes": [
+      "chatpro/",
+      "agent/",
+      "codex/"
+    ],
+    "blockSensitivePathChanges": true,
+    "bootstrapCommands": [
+      {
+        "id": "install-pinned-browser-test-tooling",
+        "command": "npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund @playwright/test@1.62.1"
+      },
+      {
+        "id": "install-browser-engines",
+        "command": "npx playwright install --with-deps chromium webkit"
+      }
+    ],
+    "requiredCommands": [
+      {
+        "id": "javascript-syntax",
+        "command": "node --check script.js"
+      },
+      {
+        "id": "static-integrity",
+        "command": "node scripts/check-static.mjs"
+      },
+      {
+        "id": "download-checksums",
+        "command": "sha256sum --check docs/download-checksums.sha256"
+      },
+      {
+        "id": "browser-e2e",
+        "command": "npx playwright test --config=playwright.config.mjs"
+      }
+    ],
+    "requiredEvidence": [
+      "project-policy hash",
+      "source and base commits",
+      "complete changed-file list",
+      "sensitive-path assessment",
+      "static internal-link integrity",
+      "download checksum verification",
+      "desktop Chromium interaction pass",
+      "mobile WebKit interaction pass",
+      "Vercel preview deployment",
+      "preview URL",
+      "owner visual review",
+      "production boundary confirmation"
+    ]
+  },
+  "ownerApprovalRequiredFor": [
+    "merge to main",
+    "production deployment or promotion",
+    "production alias change",
+    "custom domain or DNS change",
+    "replacement of ebook, album, or artwork downloads",
+    "environment-variable or secret change",
+    "new paid service or recurring cost"
+  ],
+  "forbiddenInPreview": [
+    "force-push to main",
+    "production deployment",
+    "production alias assignment",
+    "custom domain or DNS mutation",
+    "secret-value disclosure",
+    "cross-project resource reuse"
+  ],
+  "sensitivePaths": [
+    ".env*",
+    "admin.html",
+    "downloads/**",
+    "assets/music/playlist.json",
+    "vercel.json"
+  ],
+  "receipt": {
+    "artifactPath": ".clover/artifacts/build-receipt.json",
+    "retentionDays": 30,
+    "statusValues": [
+      "passed",
+      "failed"
+    ]
+  }
+}
